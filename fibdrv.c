@@ -7,8 +7,6 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 
-#include "bn_string.h"
-
 MODULE_LICENSE("Dual MIT/GPL");
 MODULE_AUTHOR("National Cheng Kung University, Taiwan");
 MODULE_DESCRIPTION("Fibonacci engine driver");
@@ -26,6 +24,70 @@ static struct cdev *fib_cdev;
 static struct class *fib_class;
 static DEFINE_MUTEX(fib_mutex);
 
+#define XOR_SWAP(a, b, type) \
+    do {                     \
+        type *__c = (a);     \
+        type *__d = (b);     \
+        *__c ^= *__d;        \
+        *__d ^= *__c;        \
+        *__c ^= *__d;        \
+    } while (0)
+
+static void __swap(void *a, void *b, size_t size)
+{
+    if (a == b)
+        return;
+
+    switch (size) {
+    case 1:
+        XOR_SWAP(a, b, char);
+        break;
+    case 2:
+        XOR_SWAP(a, b, short);
+        break;
+    case 4:
+        XOR_SWAP(a, b, unsigned int);
+        break;
+    case 8:
+        XOR_SWAP(a, b, unsigned long);
+        break;
+    default:
+        /* Do nothing */
+        break;
+    }
+}
+
+static void reverse_str(char *str, size_t n)
+{
+    for (int i = 0; i < (n >> 1); i++)
+        __swap(&str[i], &str[n - i - 1], sizeof(char));
+}
+
+typedef struct bn {
+    char num[128];
+} bn;
+
+void bn_add(char *n1, char *n2, char *n)
+{
+    int it, digit, carry = 0;
+    // while () {
+    int size_n1 = strlen(n1), size_n2 = strlen(n2);
+    for (it = 0; it < size_n2; it++) {
+        digit = (n1[it] - '0') + (n2[it] - '0') + carry;
+        n[it] = digit % 10 + '0';
+        carry = digit / 10;
+    }
+    for (it = size_n2; it < size_n1; it++) {
+        digit = (n1[it] - '0') + carry;
+        n[it] = digit % 10 + '0';
+        carry = digit / 10;
+    }
+
+    if (carry)
+        n[it] = carry + '0';
+    n[it + 1] = '\0';
+    //}
+}
 
 static ktime_t kt;
 
